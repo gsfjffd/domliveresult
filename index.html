@@ -3,71 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Cricket Scraper Status Dashboard</title>
+    <title>Live Cricket Match Dashboard</title>
     <style>
         body { font-family: Arial, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; }
         .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         h1 { color: #333; text-align: center; }
-        .status-box { background: #e2f0d9; padding: 10px; border-left: 5px solid #548235; margin-bottom: 20px; }
+        .timestamp { background: #e2f0d9; padding: 8px; border-left: 5px solid #548235; margin-bottom: 20px; font-size: 14px; }
         .match-card { background: #fafafa; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 6px; }
         .match-card h3 { margin-top: 0; color: #1f4e78; }
-        .score { font-size: 20px; font-weight: bold; color: #d9534f; }
-        .commentary { font-style: italic; color: #555; margin-top: 5px; }
-        .timestamp { font-size: 12px; color: #888; text-align: right; }
+        .score { font-size: 22px; font-weight: bold; color: #d9534f; margin: 5px 0; }
+        .commentary { font-style: italic; color: #555; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🏏 Live Scraper Monitor Dashboard</h1>
-    <div class="status-box">
-        <strong>System Status:</strong> Checking data from Cloudways server...
-    </div>
+    <h1>🏏 Live Cricket Scraper Dashboard</h1>
+    <div id="timestamp-box" class="timestamp">Status: Connecting to GitHub data...</div>
 
     <div id="matches-container">
-        <p>Loading live match data...</p>
+        <p>Loading match data...</p>
     </div>
 </div>
 
 <script>
-    // --- APNE CLOUDWAYS SERVER KA LINK YAHAN DAALEIN (Jahan receive-score.php rakha hai) ---
-    const CLOUDWAYS_DOMAIN = "https://apni-cloudways-website.com/"; 
-
     async function fetchLiveData() {
         const container = document.getElementById('matches-container');
+        const timeBox = document.getElementById('timestamp-box');
+        
         try {
-            // Index file se saare active matches ki list mangwayein
-            const response = await fetch(CLOUDWAYS_DOMAIN + 'active_matches_index.json?t=' + new Date().getTime());
-            if (!response.ok) throw new Error("Could not fetch index from server.");
+            // Seedha repository ki live_data.json file fetch kar rahe hain
+            const response = await fetch('live_data.json?t=' + new Date().getTime());
+            if (!response.ok) throw new Error("live_data.json not found yet. GitHub action will create it shortly.");
             
-            const matchFiles = await response.json();
-            if (matchFiles.length === 0) {
+            const data = await response.json();
+            timeBox.innerHTML = `<strong>Last Updated (UTC):</strong> ${data.timestamp || 'Just now'}`;
+
+            if (!data.matches || data.matches.length === 0) {
                 container.innerHTML = "<p>No active matches found right now.</p>";
                 return;
             }
 
             let htmlContent = "";
-            for (const file of matchFiles) {
-                const matchRes = await fetch(CLOUDWAYS_DOMAIN + file + '?t=' + new Date().getTime());
-                if (matchRes.ok) {
-                    const matchData = await matchRes.json();
-                    htmlContent += `
-                        <div class="match-card">
-                            <h3>Match URL: <a href="${matchData.source_url}" target="_blank">${matchData.source_url}</a></h3>
-                            <div class="score">Score: ${matchData.score_summary.current_score}</div>
-                            <div class="commentary">Latest: ${matchData.latest_commentary.ball_event}</div>
-                            <div class="timestamp">Status: Live Match Tracked Successfully</div>
-                        </div>
-                    `;
-                }
+            for (const match of data.matches) {
+                htmlContent += `
+                    <div class="match-card">
+                        <h3>Match URL: <a href="${match.source_url}" target="_blank">${match.source_url}</a></h3>
+                        <div class="score">Score: ${match.score_summary.current_score}</div>
+                        <div class="commentary">Latest: ${match.latest_commentary.ball_event}</div>
+                    </div>
+                `;
             }
             container.innerHTML = htmlContent;
         } catch (error) {
-            container.innerHTML = `<p style="color: red;">Error fetching live data: ${error.message}. (Make sure Cloudways CORS & URL is correct)</p>`;
+            container.innerHTML = `<p style="color: #c00;">${error.message}</p>`;
         }
     }
 
-    // Page load hote hi data fetch karo, aur har 10 second mein auto-refresh karo
+    // Page load hote hi data layega, aur har 10 second mein auto-refresh karega
     fetchLiveData();
     setInterval(fetchLiveData, 10000);
 </script>
